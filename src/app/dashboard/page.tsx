@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useReducer, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/storage'
 import { Habit } from '@/types/habit'
@@ -11,11 +11,13 @@ import { logoutUser } from '@/lib/auth'
 
 export default function DashboardPage() {
   const router = useRouter()
+  const [, forceUpdate] = useReducer((n: number) => n + 1, 0)
+
   const session = storage.getSession()
-  const [habits, setHabits] = useState<Habit[]>(() => {
-    if (!session) return []
-    return storage.getHabits().filter((h) => h.userId === session.userId)
-  })
+  const habits = session
+    ? storage.getHabits().filter((h) => h.userId === session.userId)
+    : []
+
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
 
@@ -41,9 +43,8 @@ export default function DashboardPage() {
       createdAt: new Date().toISOString(),
       completions: [],
     }
-    const updatedHabits = [...storage.getHabits(), newHabit]
-    storage.saveHabits(updatedHabits)
-    setHabits(updatedHabits.filter((h) => h.userId === session.userId))
+    storage.saveHabits([...storage.getHabits(), newHabit])
+    forceUpdate()
     setIsFormOpen(false)
   }
 
@@ -54,11 +55,12 @@ export default function DashboardPage() {
       name: data.name,
       description: data.description,
     }
-    const allHabits = storage
-      .getHabits()
-      .map((h) => (h.id === editingHabit.id ? updatedHabit : h))
-    storage.saveHabits(allHabits)
-    setHabits(allHabits.filter((h) => h.userId === session.userId))
+    storage.saveHabits(
+      storage
+        .getHabits()
+        .map((h) => (h.id === editingHabit.id ? updatedHabit : h))
+    )
+    forceUpdate()
     setEditingHabit(null)
   }
 
@@ -66,18 +68,16 @@ export default function DashboardPage() {
     if (!session) return
     const today = new Date().toISOString().split('T')[0]
     const updatedHabit = toggleHabitCompletion(habit, today)
-    const allHabits = storage
-      .getHabits()
-      .map((h) => (h.id === habit.id ? updatedHabit : h))
-    storage.saveHabits(allHabits)
-    setHabits(allHabits.filter((h) => h.userId === session.userId))
+    storage.saveHabits(
+      storage.getHabits().map((h) => (h.id === habit.id ? updatedHabit : h))
+    )
+    forceUpdate()
   }
 
   const handleDeleteHabit = (habit: Habit) => {
     if (!session) return
-    const allHabits = storage.getHabits().filter((h) => h.id !== habit.id)
-    storage.saveHabits(allHabits)
-    setHabits(allHabits.filter((h) => h.userId === session.userId))
+    storage.saveHabits(storage.getHabits().filter((h) => h.id !== habit.id))
+    forceUpdate()
   }
 
   if (!session) return null
@@ -90,7 +90,7 @@ export default function DashboardPage() {
       <header className="mx-auto mb-8 flex max-w-4xl items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">My Habits</h1>
-          <p className="text-gray-600">Welcome back, {session?.email}</p>
+          <p className="text-gray-600">Welcome back, {session.email}</p>
         </div>
         <button
           data-testid="auth-logout-button"

@@ -5,7 +5,6 @@ const ASSETS_TO_CACHE = [
   '/signup',
   '/dashboard',
   '/manifest.json',
-  '/globals.css',
 ];
 
 self.addEventListener('install', (event) => {
